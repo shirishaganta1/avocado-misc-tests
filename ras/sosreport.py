@@ -18,11 +18,9 @@ import os
 import re
 import tempfile
 import shutil
-from threading import Thread
-
 from avocado import Test
 from avocado import skipIf
-from avocado.utils import process, cpu, genio
+from avocado.utils import process
 from avocado.utils import distro
 from avocado.utils.software_manager.manager import SoftwareManager
 
@@ -284,10 +282,9 @@ class Sosreport(Test):
         directory_name = tempfile.mkdtemp()
         for i in [2, 4, 8, "off"]:
             self.run_cmd("ppc64_cpu --smt=%s" % i)
-            smt_initial = re.split(
-                r'=| is ', self.run_cmd_out("ppc64_cpu --smt"))[1]
+            smt_initial = re.split(r'=| is ', self.run_cmd_out("ppc64_cpu --smt"))[1]
             if smt_initial == str(i):
-                self.run_cmd("%s --batch --tmp-dir=%s --all-logs" %
+                self.run_cmd("%s --batch --tmp-dir=%s --all-logs" % 
                              (self.sos_cmd, directory_name))
             else:
                 self.is_fail += 1
@@ -333,8 +330,8 @@ class Sosreport(Test):
                                                     ignore_status=True,
                                                     shell=True).decode("utf-8"):
             mem_value = self.run_cmd_out("lparstat -i | "
-                                         "grep \"Online Memory\" | "
-                                         "cut -d':' -f2")
+                                       "grep \"Online Memory\" | "
+                                       "cut -d':' -f2")
             mem_count = re.split(r'\s', mem_value)[1]
             if mem_count:
                 mem_count = int(mem_count)
@@ -349,17 +346,26 @@ class Sosreport(Test):
             self.fail(
                 "%s command(s) failed in sosreport tool verification" % self.is_fail)
 
-    def test(self):
-        workload_thread = Thread(target=self.run_workload)
-        workload_thread.start()
-        sos_thread = Thread(target=self.test_user)
-        sos_thread.start()
-        workload_thread.join()
-        sos_thread.join()
-
-    def run_workload(self):
-        online_cpus = cpu.online_list()[1:]
-        for i in online_cpus:
-            cpu_file = "/sys/bus/cpu/devices/cpu%s/online" % i
-            genio.write_one_line(cpu_file, "0")
-            genio.write_one_line(cpu_file, "1")
+    def test_fs(self):
+        is_fail = 0
+        loop_dev = "/dev/loop0"
+        fstype = self.params.get('fs', default='ext4')
+        mnt = self.params.get('dir', default='/mnt')
+        if 'blockfile' not in self.run_cmd_out("ls /tmp"):
+            blk_dev = process.run("dd if=/dev/zero of=/tmp/blockfile bs=1M count=5120")
+            create_dev = process.run("losetup %s /tmp/blockfile" % loop_dev)
+        if fstype == "ext4":
+            cmd = "mkfs.%s %s" % (fstype, loop_dev)
+        else:
+            cmd = "mkfs.%s -f %s" % (fstype, loop_dev)
+        process.run("mkfs.%s %s" % (fstype, loop_dev))
+        process.run("mount %s %s" % (loop_dev, mnt))
+        self.run_cmd("%s --batch --tmp-dir=%s --all-logs" %
+                     (self.sos_cmd, mnt))
+        process.run("umount %s" %loop_dev)
+        if 'blockfile' in self.run_cmd_out("ls /tmp"):
+            process.run("losetup -d %s" % loop_dev)
+            process.run("rm -rf /tmp/blockfile")
+        if is_fail:
+            self.fail(
+                "%s command(s) failed in sosreport tool verification" % is_fail)
