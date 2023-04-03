@@ -79,8 +79,8 @@ class RASToolsPpcdiag(Test):
                     self.cancel("Fail to install %s required for this test." %
                                 package)
             url = self.params.get(
-                    'ppcdiag_url', default='https://github.com/power-ras/'
-                    'ppc64-diag/archive/refs/heads/master.zip')
+                'ppcdiag_url', default='https://github.com/power-ras/'
+                'ppc64-diag/archive/refs/heads/master.zip')
             tarball = self.fetch_asset('ppcdiag.zip', locations=[url],
                                        expire='7d')
             archive.extract(tarball, self.workdir)
@@ -120,6 +120,9 @@ class RASToolsPpcdiag(Test):
         View and manipulate the system attention and fault indicators (LEDs)
         """
         self.log.info("=====Executing usysattn tool test======")
+        if 'not supported' in self.run_cmd_out("usysident"):
+            self.cancel(
+                "The identify indicators are not supported on this system")
         value = self.params.get('usysattn_list', default=['-h', '-V', '-P'])
         for list_item in value:
             self.run_cmd('usysattn  %s ' % list_item)
