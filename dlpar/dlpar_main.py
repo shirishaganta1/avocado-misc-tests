@@ -169,7 +169,7 @@ class DlparTests(Test):
             cmd_output = process.system_output(cmd, ignore_status=True).decode()
             if 'IDLE' not in cmd_output:
                 max_value = curr_mem * 0.4
-                print("max value : ", max_value)
+                self.log.info("max value :%s " % max_value)
             else:
                 # Calculate 80% of curr_mem
                 max_value = curr_mem * 0.8
